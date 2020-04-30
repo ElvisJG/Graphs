@@ -1,61 +1,73 @@
-from projects.ancestor.util import Graph, Queue
+class Queue():
+    def __init__(self):
+        self.queue = []
+    def enqueue(self, value):
+        self.queue.append(value)
+    def dequeue(self):
+        if self.size() > 0:
+            return self.queue.pop(0)
+        else:
+            return None
+    def size(self):
+        return len(self.queue)
 
+class Graph:
+    """Represent a graph as a dictionary of vertices mapping labels to edges."""
+    def __init__(self):
+        self.vertices = {}
+
+    def add_vertex(self, vertex_id):
+        if vertex_id not in self.vertices:
+            self.vertices[vertex_id] = set()
+
+    def add_edge(self, v1, v2):
+        if v1 in self.vertices and v2 in self.vertices:
+            self.vertices[v1].add(v2)
+        else:
+            raise IndexError("That vertex does not exist!")
 
 def earliest_ancestor(ancestors, starting_node):
-    # Initialize empty graph
+    # transform the input into a graph
     graph = Graph()
-    terminal_paths = []
+    for pair in ancestors: # (parent, child)
+        parent = pair[0]
+        child = pair[1]
+        graph.add_vertex(parent)
+        graph.add_vertex(child)
+        # build the edge as well
+        graph.add_edge(child, parent)
+    # Do a BFS
+    visited_neighbors = set()
+    neighbors_to_visit = Queue()
+    neighbors_to_visit.enqueue(
+        {
+            'vertex': starting_node, 
+            'path_so_far': [starting_node]
+        }
+    )
+    max_path_len = 1
+    earliest_ancestor = -1 # we have not found an earliest ancestor
+    while neighbors_to_visit.size() > 0:
+        vertex_and_path = neighbors_to_visit.dequeue()
+        current_vertex = vertex_and_path['vertex']
+        current_path = vertex_and_path['path_so_far']
+        # check if visited
+        if (current_vertex not in visited_neighbors):
+            # add to visited
+            visited_neighbors.add(current_vertex)
+            # Check if this current path is the longest we have seen
+            # if it is, update the longest path seen variable
+            # also, if its the same length as the longest one we have seen, if the ancestor has smaller ID, use it
+            if ((len(current_path) >= max_path_len and current_vertex < earliest_ancestor) 
+            or (len(current_path) > max_path_len)):
+                earliest_ancestor = current_vertex
+                max_path_len = len(current_path)
 
-    # Add nodes and edges to graph
-    for pair in ancestors:
-        for vertices in pair:
-            # Add nodes if not already in vertices
-            if vertices not in graph.vertices:
-                graph.add_vertex(vertices)
-        # Add unidirectional edge representing the "is a child of" relation
-        graph.add_edge(pair[1], pair[0])
-
-    # Create empty queue
-    queue = Queue()
-    # Add path from the starting node to the queue
-    queue.enqueue([starting_node])
-    # Create empty set
-    visited = set()
-    # While the queue is not empty
-    while queue.size() > 0:
-        # Dequeue the first path
-        path = queue.dequeue()
-        # Grab the last vertex from the path
-        last_vertex = path[-1]
-        # Check if it has parents
-        if graph.get_neighbors(last_vertex) == set():
-            # If not, append to list of terminal paths
-            terminal_paths.append(path)
-        # Check if node has been visited
-        if last_vertex not in visited:
-            # If not, mark it visited
-            visited.add(last_vertex)
-            # For each parent
-            for neighbor in graph.get_neighbors(last_vertex):
-                # Make a copy of the path before adding
-                path_copy = path.copy()
-                # Add the parent to the path
+            for neighbor in graph.vertices[current_vertex]: 
+                path_copy = list(current_path)
                 path_copy.append(neighbor)
-                # Add the appended path to the queue
-                queue.enqueue(path_copy)
-
-    # Find how long the longest path is in terminal_paths
-    max_length = max(len(p) for p in terminal_paths)
-    # Create a list of all paths that are of length max_length
-    longest_paths = [p for p in terminal_paths if len(p) == max_length]
-
-    # Return -1 if the starting node has no parents
-    if max_length == 1:
-        return -1
-    # If there's a unique longest path, return the earliest ancestor from the end of it
-    if len(longest_paths) == 1:
-        return longest_paths[0][-1]
-    # If there are multiple longest paths => the earliest ancestor with the lowest id number
-    if len(longest_paths) > 1:
-        candidates = [p[-1] for p in longest_paths]
-        return min(candidates)
+                neighbors_to_visit.enqueue({
+                    'vertex': neighbor,
+                    'path_so_far': path_copy
+                })
+    return earliest_ancestor
